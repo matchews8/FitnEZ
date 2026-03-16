@@ -49,10 +49,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user IS logged in and trying to access login/signup → send to exercises
+  // If user IS logged in and trying to access login/signup → send to reserve
   if (user && (pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/exercises'
+    url.pathname = '/reserve'
     return NextResponse.redirect(url)
   }
 

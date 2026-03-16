@@ -6,12 +6,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { WorkoutSessionProvider, useWorkoutSession } from '@/lib/workout-session-context'
 
 // SVG icons for the bottom nav tabs
-function DumbbellIcon({ className }: { className?: string }) {
+function BookmarkIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 5v14M18 5v14M6 8H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2M18 8h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 12h12" />
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   )
 }
@@ -36,13 +37,15 @@ function ClockIcon({ className }: { className?: string }) {
 }
 
 const tabs = [
-  { href: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
-  { href: '/workouts/new', label: 'New Workout', Icon: PlusCircleIcon },
+  { href: '/reserve', label: 'Reserve', Icon: BookmarkIcon },
+  { href: '/workouts/new', label: 'Workout', Icon: PlusCircleIcon },
   { href: '/history', label: 'History', Icon: ClockIcon },
 ]
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+// Inner component so it can consume WorkoutSessionContext
+function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { session } = useWorkoutSession()
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -56,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="max-w-lg mx-auto flex">
           {tabs.map(({ href, label, Icon }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
+            const isWorkoutTab = href === '/workouts/new'
             return (
               <Link
                 key={href}
@@ -64,7 +68,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                {/* Icon with optional active-workout dot */}
+                <span className="relative">
+                  <Icon className="w-5 h-5" />
+                  {isWorkoutTab && session && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                  )}
+                </span>
                 <span>{label}</span>
               </Link>
             )
@@ -72,5 +82,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </nav>
     </div>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <WorkoutSessionProvider>
+      <DashboardInner>{children}</DashboardInner>
+    </WorkoutSessionProvider>
   )
 }
