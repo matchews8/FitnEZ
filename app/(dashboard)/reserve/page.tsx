@@ -122,6 +122,7 @@ export default function ReservePage() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [openSections, setOpenSections] = useState<Set<BodyPart>>(new Set())
 
   const supabase = createClient()
 
@@ -138,21 +139,28 @@ export default function ReservePage() {
   useEffect(() => { fetchExercises() }, [fetchExercises])
 
   async function handleDelete(exercise: Exercise) {
-    if (!confirm(`Remove "${exercise.name}" from your reserve?`)) return
+    if (!confirm(`Remove "${exercise.name}" from your exercises?`)) return
     setDeletingId(exercise.id)
     await supabase.from('exercises').delete().eq('id', exercise.id)
     setExercises((prev) => prev.filter((e) => e.id !== exercise.id))
     setDeletingId(null)
   }
 
-  // Which body parts to display (for "All", show all groups that have exercises)
+  function toggleSection(bp: BodyPart) {
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      next.has(bp) ? next.delete(bp) : next.add(bp)
+      return next
+    })
+  }
+
   const visibleBodyParts = filter === 'All' ? BODY_PARTS : [filter]
 
   return (
     <div className="px-4 pt-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Reserve</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Exercises</h1>
         <button
           onClick={() => setShowModal(true)}
           className="bg-blue-600 text-white text-sm font-semibold rounded-xl px-4 py-2 hover:bg-blue-700 transition-colors"
@@ -183,39 +191,54 @@ export default function ReservePage() {
       ) : exercises.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🏋️</p>
-          <p className="text-gray-500 text-sm">Your reserve is empty. Tap + Add to get started.</p>
+          <p className="text-gray-500 text-sm">No exercises yet. Tap + Add to get started.</p>
         </div>
       ) : (
-        <div className="space-y-6 pb-4">
+        <div className="space-y-2 pb-4">
           {visibleBodyParts.map((bp) => {
             const group = exercises.filter((e) => e.body_part === bp)
             if (group.length === 0) return null
+            const isOpen = openSections.has(bp)
             return (
-              <div key={bp}>
-                {/* Body part heading */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${BODY_PART_COLORS[bp]}`}>
-                    {bp}
-                  </span>
-                  <span className="text-xs text-gray-400">{group.length}</span>
-                </div>
+              <div key={bp} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Collapsible header */}
+                <button
+                  onClick={() => toggleSection(bp)}
+                  className="w-full flex items-center justify-between px-4 py-3.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${BODY_PART_COLORS[bp]}`}>
+                      {bp}
+                    </span>
+                    <span className="text-xs text-gray-400">{group.length}</span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
+                    strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
 
                 {/* Exercise list */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
-                  {group.map((exercise) => (
-                    <div key={exercise.id} className="flex items-center justify-between px-4 py-3">
-                      <span className="text-sm font-medium text-gray-800">{exercise.name}</span>
-                      <button
-                        onClick={() => handleDelete(exercise)}
-                        disabled={deletingId === exercise.id}
-                        className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none disabled:opacity-40"
-                        title="Remove from reserve"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                {isOpen && (
+                  <div className="divide-y divide-gray-50 border-t border-gray-100">
+                    {group.map((exercise) => (
+                      <div key={exercise.id} className="flex items-center justify-between px-4 py-3">
+                        <span className="text-sm font-medium text-gray-800">{exercise.name}</span>
+                        <button
+                          onClick={() => handleDelete(exercise)}
+                          disabled={deletingId === exercise.id}
+                          className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none disabled:opacity-40"
+                          title="Remove exercise"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}

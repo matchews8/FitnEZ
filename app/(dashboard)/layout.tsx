@@ -37,7 +37,7 @@ function ClockIcon({ className }: { className?: string }) {
 }
 
 const tabs = [
-  { href: '/reserve', label: 'Reserve', Icon: BookmarkIcon },
+  { href: '/reserve', label: 'Exercises', Icon: BookmarkIcon },
   { href: '/workouts/new', label: 'Workout', Icon: PlusCircleIcon },
   { href: '/history', label: 'History', Icon: ClockIcon },
 ]
