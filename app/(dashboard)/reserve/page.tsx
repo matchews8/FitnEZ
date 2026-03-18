@@ -1,12 +1,22 @@
 'use client'
 
-// Exercise Reserve page
-// Shows all exercises in the user's personal reserve, grouped by body part.
-// Users can filter by body part, add new exercises, and delete any exercise.
-
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { type Exercise, BODY_PARTS, type BodyPart } from '@/lib/types'
+
+// ─── Chevron ──────────────────────────────────────────────────────────────────
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
+      strokeLinecap="round" strokeLinejoin="round"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
 
 // ─── Add Exercise Modal ───────────────────────────────────────────────────────
 
@@ -103,7 +113,7 @@ function AddExerciseModal({
   )
 }
 
-// ─── Body Part Badge ──────────────────────────────────────────────────────────
+// ─── Body Part Colors ─────────────────────────────────────────────────────────
 
 const BODY_PART_COLORS: Record<BodyPart, string> = {
   Chest:     'bg-red-50 text-red-600',
@@ -112,6 +122,104 @@ const BODY_PART_COLORS: Record<BodyPart, string> = {
   Arms:      'bg-orange-50 text-orange-600',
   Legs:      'bg-blue-50 text-blue-600',
   Core:      'bg-yellow-50 text-yellow-700',
+}
+
+// ─── Exercise Item ────────────────────────────────────────────────────────────
+
+function ExerciseItem({
+  exercise,
+  onDelete,
+  deletingId,
+}: {
+  exercise: Exercise
+  onDelete: (exercise: Exercise) => void
+  deletingId: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [savedTip, setSavedTip] = useState(exercise.form_tips ?? '')
+  const [tipText, setTipText] = useState(exercise.form_tips ?? '')
+  const [saving, setSaving] = useState(false)
+  const supabase = createClient()
+
+  async function handleSave() {
+    setSaving(true)
+    await supabase.from('exercises').update({ form_tips: tipText }).eq('id', exercise.id)
+    setSavedTip(tipText)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  function handleCancelEdit() {
+    setTipText(savedTip)
+    setEditing(false)
+  }
+
+  return (
+    <div className="border-t border-gray-50">
+      {/* Exercise header */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-sm font-medium text-gray-800">{exercise.name}</span>
+        <Chevron open={open} />
+      </button>
+
+      {/* Expanded: form tips + actions */}
+      {open && (
+        <div className="px-4 pb-4">
+          {editing ? (
+            <div className="space-y-2">
+              <textarea
+                value={tipText}
+                onChange={(e) => setTipText(e.target.value)}
+                rows={3}
+                placeholder="Add form tips..."
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-gray-500 text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-gray-500 mb-3 leading-relaxed">
+                {savedTip || <span className="italic text-gray-400">No form tips yet.</span>}
+              </p>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="text-blue-600 text-xs font-semibold hover:text-blue-700 transition-colors"
+                >
+                  Edit tips
+                </button>
+                <button
+                  onClick={() => onDelete(exercise)}
+                  disabled={deletingId === exercise.id}
+                  className="text-red-400 text-xs font-medium hover:text-red-600 disabled:opacity-40 transition-colors"
+                >
+                  {deletingId === exercise.id ? 'Removing...' : 'Remove'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -201,7 +309,7 @@ export default function ReservePage() {
             const isOpen = openSections.has(bp)
             return (
               <div key={bp} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Collapsible header */}
+                {/* Category header */}
                 <button
                   onClick={() => toggleSection(bp)}
                   className="w-full flex items-center justify-between px-4 py-3.5"
@@ -212,30 +320,19 @@ export default function ReservePage() {
                     </span>
                     <span className="text-xs text-gray-400">{group.length}</span>
                   </div>
-                  <svg
-                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
-                    strokeLinecap="round" strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <Chevron open={isOpen} />
                 </button>
 
                 {/* Exercise list */}
                 {isOpen && (
-                  <div className="divide-y divide-gray-50 border-t border-gray-100">
+                  <div className="border-t border-gray-100">
                     {group.map((exercise) => (
-                      <div key={exercise.id} className="flex items-center justify-between px-4 py-3">
-                        <span className="text-sm font-medium text-gray-800">{exercise.name}</span>
-                        <button
-                          onClick={() => handleDelete(exercise)}
-                          disabled={deletingId === exercise.id}
-                          className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none disabled:opacity-40"
-                          title="Remove exercise"
-                        >
-                          &times;
-                        </button>
-                      </div>
+                      <ExerciseItem
+                        key={exercise.id}
+                        exercise={exercise}
+                        onDelete={handleDelete}
+                        deletingId={deletingId}
+                      />
                     ))}
                   </div>
                 )}

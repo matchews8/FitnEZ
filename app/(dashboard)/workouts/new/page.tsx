@@ -139,7 +139,6 @@ function Step2({
   }
 
   function handleNext() {
-    if (!workoutName.trim()) { setError('Please enter a workout name.'); return }
     if (selectedBodyParts.length === 0) { setError('Select at least one body part.'); return }
     setError(null)
     onNext()
@@ -320,6 +319,71 @@ function Step3({
   )
 }
 
+// ─── Stepper ──────────────────────────────────────────────────────────────────
+
+function Stepper({
+  value,
+  onChange,
+  step = 1,
+}: {
+  value: string
+  onChange: (v: string) => void
+  step?: number
+}) {
+  const num = value === '' ? 0 : parseFloat(value) || 0
+
+  function decrement() {
+    const next = Math.round((num - step) * 100) / 100
+    if (next >= 0) onChange(String(next))
+  }
+
+  function increment() {
+    onChange(String(Math.round((num + step) * 100) / 100))
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    // Allow free typing — commit validation on blur
+    onChange(e.target.value)
+  }
+
+  function handleBlur() {
+    const parsed = parseFloat(value)
+    if (isNaN(parsed) || parsed < 0) {
+      onChange('0')
+    } else {
+      // Normalise (e.g. strip leading zeros)
+      onChange(String(Math.round(parsed * 100) / 100))
+    }
+  }
+
+  return (
+    <div className="flex items-center bg-gray-100 rounded-2xl overflow-hidden h-14">
+      <button
+        type="button"
+        onClick={decrement}
+        className="w-14 h-full flex items-center justify-center text-3xl font-light text-gray-500 hover:bg-gray-200 active:bg-gray-300 transition-colors select-none"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={handleInputChange}
+        onBlur={handleBlur}
+        className="flex-1 h-full bg-transparent text-center text-lg font-bold text-gray-900 tabular-nums focus:outline-none min-w-0"
+      />
+      <button
+        type="button"
+        onClick={increment}
+        className="w-14 h-full flex items-center justify-center text-3xl font-light text-gray-500 hover:bg-gray-200 active:bg-gray-300 transition-colors select-none"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 // ─── Step 4: Active Workout ───────────────────────────────────────────────────
 
 function Step4({
@@ -340,12 +404,15 @@ function Step4({
   onFinish: () => void
 }) {
   function addSet(weId: string) {
-    onSetsChange(weId, [...(sets[weId] ?? []), { reps: '', weight: '' }])
+    const current = sets[weId] ?? []
+    const prev = current[current.length - 1]
+    const newSet = prev ? { reps: prev.reps, weight: prev.weight } : { reps: '0', weight: '0' }
+    onSetsChange(weId, [...current, newSet])
   }
 
   function removeSet(weId: string, idx: number) {
     const updated = (sets[weId] ?? []).filter((_, i) => i !== idx)
-    onSetsChange(weId, updated.length > 0 ? updated : [{ reps: '', weight: '' }])
+    onSetsChange(weId, updated.length > 0 ? updated : [{ reps: '0', weight: '0' }])
   }
 
   function updateSet(weId: string, idx: number, field: 'reps' | 'weight', value: string) {
@@ -383,45 +450,40 @@ function Step4({
                 </span>
               </div>
 
-              <div className="px-4 pt-3 pb-2">
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="w-10 text-xs text-gray-400">Set</span>
-                  <span className="flex-1 text-xs text-gray-400 text-center">Reps</span>
-                  <span className="flex-1 text-xs text-gray-400 text-center">Weight (kg)</span>
-                  <span className="w-6" />
-                </div>
-
+              <div className="px-4 pt-3 pb-3 space-y-3">
                 {exSets.map((s, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-2">
-                    <span className="w-10 text-xs font-semibold text-gray-500">{idx + 1}</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="—"
-                      value={s.reps}
-                      onChange={(e) => updateSet(ex.workoutExerciseId, idx, 'reps', e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="—"
-                      value={s.weight}
-                      onChange={(e) => updateSet(ex.workoutExerciseId, idx, 'weight', e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={() => removeSet(ex.workoutExerciseId, idx)}
-                      className="w-6 text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
-                    >
-                      ×
-                    </button>
+                  <div key={idx}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Set {idx + 1}</span>
+                      <button
+                        onClick={() => removeSet(ex.workoutExerciseId, idx)}
+                        className="text-gray-300 hover:text-red-400 transition-colors text-xl leading-none"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs text-gray-400 text-center mb-1.5">Reps</p>
+                        <Stepper
+                          value={s.reps}
+                          onChange={(v) => updateSet(ex.workoutExerciseId, idx, 'reps', v)}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 text-center mb-1.5">Weight (kg)</p>
+                        <Stepper
+                          value={s.weight}
+                          onChange={(v) => updateSet(ex.workoutExerciseId, idx, 'weight', v)}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
 
                 <button
                   onClick={() => addSet(ex.workoutExerciseId)}
-                  className="text-blue-600 text-xs font-semibold py-1 hover:text-blue-700 transition-colors"
+                  className="w-full text-blue-600 text-sm font-semibold py-2 hover:text-blue-700 transition-colors border border-blue-200 rounded-xl hover:bg-blue-50"
                 >
                   + Add set
                 </button>
@@ -532,6 +594,10 @@ function NewWorkoutContent() {
       .in('body_part', selectedBodyParts)
       .order('name')
     setAllExercises(data ?? [])
+    if (!workoutName.trim()) {
+      const autoName = BODY_PARTS.filter((bp) => selectedBodyParts.includes(bp)).join(', ')
+      setWorkoutName(autoName)
+    }
     setStep(3)
   }
 
@@ -575,7 +641,7 @@ function NewWorkoutContent() {
     }))
 
     const initialSets: Record<string, SetEntry[]> = {}
-    exercises.forEach((ex) => { initialSets[ex.workoutExerciseId] = [{ reps: '', weight: '' }] })
+    exercises.forEach((ex) => { initialSets[ex.workoutExerciseId] = [{ reps: '0', weight: '0' }] })
 
     startSession({
       workoutId: workout.id,
